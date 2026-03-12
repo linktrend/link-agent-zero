@@ -51,3 +51,5 @@ pywinpty==3.0.2; sys_platform == "win32"
 python-socketio>=5.14.2
 uvicorn>=0.38.0
 wsproto>=1.2.0
+supabase>=2.15.0
+google-cloud-secret-manager>=2.23.1

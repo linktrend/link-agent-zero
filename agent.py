@@ -18,7 +18,8 @@ from python.helpers import (
     tokens,
     context as context_helper,
     dirty_json,
-    subagents
+    subagents,
+    linktrend_audit,
 )
 from python.helpers.print_style import PrintStyle
 
@@ -429,6 +430,10 @@ class Agent:
                             # Stream masked chunk after extensions processed it
                             if stream_data.get("chunk"):
                                 printer.stream(stream_data["chunk"])
+                                await linktrend_audit.log_reasoning_step(
+                                    chunk=stream_data["chunk"],
+                                    full_text_len=len(stream_data.get("full", "")),
+                                )
                             # Use the potentially modified full text for downstream processing
                             await self.handle_reasoning_stream(stream_data["full"])
 
@@ -808,10 +813,18 @@ class Agent:
         model = self.get_chat_model()
 
         # call model
+        async def audit_tokens_callback(chunk: str, token_count: int):
+            await linktrend_audit.log_token_usage(
+                token_text=chunk,
+                token_count=token_count,
+                source="chat_model",
+            )
+
         response, reasoning = await model.unified_call(
             messages=messages,
             reasoning_callback=reasoning_callback,
             response_callback=response_callback,
+            tokens_callback=audit_tokens_callback,
             rate_limiter_callback=(
                 self.rate_limiter_callback if not background else None
             ),

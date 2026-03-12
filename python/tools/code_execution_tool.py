@@ -10,6 +10,7 @@ from python.helpers.shell_ssh import SSHInteractiveSession
 from python.helpers.docker import DockerContainerManager
 from python.helpers.strings import truncate_text as truncate_text_string
 from python.helpers.messages import truncate_text as truncate_text_agent
+from python.helpers import linktrend_audit
 import re
 
 # Timeouts for python, nodejs, and terminal runtimes.
@@ -194,6 +195,11 @@ class CodeExecution(Tool):
         # try again on lost connection
         for i in range(2):
             try:
+                await linktrend_audit.log_terminal_command(
+                    command=command,
+                    session=session,
+                    runtime=str(self.args.get("runtime", "terminal")),
+                )
 
                 self.state.shells[session].running = True
                 await self.state.shells[session].session.send_command(command)
