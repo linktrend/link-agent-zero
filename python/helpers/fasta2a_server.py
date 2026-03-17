@@ -6,7 +6,7 @@ from typing import Any, List
 import contextlib
 import threading
 
-from python.helpers import settings, projects
+from python.helpers import settings, projects, linktrend_audit
 from starlette.requests import Request
 
 # Local imports
@@ -74,6 +74,16 @@ class AgentZeroWorker(Worker):  # type: ignore[misc]
         try:
             task_id = params['id']
             message = params['message']
+
+            await linktrend_audit.enforce_identity_gate_or_exit(task_id=task_id)
+            await linktrend_audit.ensure_required_env_vars(
+                secret_name_pattern="LINKTREND_AIOS_PROD_{resource}"
+            )
+            await linktrend_audit.log_event(
+                event_type="worker_wakeup",
+                details="Worker woke up and passed security checks",
+                payload={"task_id": task_id},
+            )
 
             _PRINTER.print(f"[A2A] Processing task {task_id} with new temporary context")
 
