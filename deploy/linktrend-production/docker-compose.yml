@@ -1,0 +1,15 @@
+services:
+  agentzero-execution:
+    image: python:3.11-slim
+    working_dir: /app
+    command: ["bash", "deploy/linktrend-production/entrypoint.sh"]
+    env_file:
+      - .env.runtime
+    volumes:
+      - ../..:/app
+    restart: unless-stopped
+    networks: [aios]
+
+networks:
+  aios:
+    driver: bridge
