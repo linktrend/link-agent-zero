@@ -7,6 +7,7 @@ Run execution worker as isolated service consuming canonical `aios.*` subjects.
 - Runtime env uses non-secret + `*_SECRET_NAME` contract.
 - Secrets resolved from GSM before startup.
 - Service fails fast when required env or resolved secrets are missing.
+- Supabase schema ownership: none (AgentZero consumes orchestration/events and upstream APIs).
 
 ## Startup
 ```bash
