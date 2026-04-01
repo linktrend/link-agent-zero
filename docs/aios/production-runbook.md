@@ -1,5 +1,8 @@
 # AgentZero Production Runbook (LiNKdroplet Admin)
 
+Owner: LiNKtrend Platform  
+Last updated: 2026-04-01
+
 ## Purpose
 Run execution worker as isolated service consuming canonical `aios.*` subjects.
 
