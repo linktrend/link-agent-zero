@@ -218,6 +218,42 @@ async def _publish(js: Any, event: dict[str, Any]) -> None:
     await js.publish(event["event_type"], json.dumps(event, ensure_ascii=True).encode("utf-8"))
 
 
+def _notify_aios_task_complete_sync(cfg: RuntimeConfig, event: dict[str, Any]) -> None:
+    if event.get("event_type") != TASK_COMPLETED:
+        return
+
+    base = cfg.aios_base_url.rstrip("/")
+    complete_url = f"{base}/tasks/complete"
+    body = json.dumps(
+        {
+            "tenantId": event.get("tenant_id"),
+            "missionId": event.get("mission_id"),
+            "runId": event.get("run_id"),
+            "taskId": event.get("task_id"),
+            "fromDprId": event.get("from_dpr_id"),
+            "toDprId": event.get("to_dpr_id"),
+            "summary": event.get("payload", {}).get("summary") or "Task execution completed",
+            "detail": event.get("payload", {}).get("detail"),
+            "status": event.get("payload", {}).get("status") or "active",
+            "metadata": {
+                "source": "agentzero",
+                "stage": event.get("payload", {}).get("stage"),
+                "result": event.get("payload", {}).get("result"),
+            },
+        },
+        ensure_ascii=True,
+    ).encode("utf-8")
+
+    request = urllib_request.Request(
+        complete_url,
+        data=body,
+        headers=_persona_headers(cfg, include_json=True),
+        method="POST",
+    )
+    with urllib_request.urlopen(request, timeout=10):
+        return
+
+
 async def _process_message(msg: Any, js: Any, cfg: RuntimeConfig) -> None:
     try:
         envelope = _assert_envelope_shape(json.loads(msg.data.decode("utf-8")))
@@ -238,6 +274,13 @@ async def _process_message(msg: Any, js: Any, cfg: RuntimeConfig) -> None:
             print(
                 f"[agentzero-nats] published {event['event_type']} run={event['run_id']} task={event['task_id']}"
             )
+            if event["event_type"] == TASK_COMPLETED:
+                try:
+                    _notify_aios_task_complete_sync(cfg, event)
+                except Exception as sync_exc:
+                    print(
+                        f"[agentzero-nats] warning: failed to sync /tasks/complete for run={event['run_id']} task={event['task_id']}: {sync_exc}"
+                    )
         await msg.ack()
     except Exception as exc:
         delivery_count = 1
