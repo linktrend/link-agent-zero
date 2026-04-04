@@ -1,34 +1,87 @@
 name: Upstream Sync To Staging
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '17 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-sync-staging
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout staging
         uses: actions/checkout@v4
         with:
+          ref: staging
           fetch-depth: 0
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Sync upstream into staging
+
+      - name: Merge upstream into bot branch (custom code wins conflicts)
+        env:
+          UPSTREAM_REPO: agent0ai/agent-zero
+          UPSTREAM_BRANCH: main
         run: |
           set -euo pipefail
-          git remote add upstream "https://github.com/agent0ai/agent-zero.git" || git remote set-url upstream "https://github.com/agent0ai/agent-zero.git"
-          git fetch upstream "main"
-          git fetch origin staging || true
-          git checkout -B staging origin/staging 2>/dev/null || git checkout -B staging
-          git merge --no-ff --no-edit "upstream/main" || {
-            echo "Conflict merging upstream/main into staging. Resolve manually in staging.";
-            exit 1;
-          }
-          git push origin staging
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch upstream "${UPSTREAM_BRANCH}" --prune
+
+          git checkout -B bot/upstream-sync origin/staging
+          BEFORE=$(git rev-parse HEAD)
+
+          if ! git merge --no-edit -X ours "upstream/${UPSTREAM_BRANCH}"; then
+            git merge --abort || true
+            echo "Upstream merge failed; manual resolution required in staging."
+            exit 1
+          fi
+
+          AFTER=$(git rev-parse HEAD)
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "No upstream changes to apply."
+            echo "NO_CHANGES=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+      - name: Push bot branch
+        if: env.NO_CHANGES != '1'
+        run: |
+          git push --force-with-lease origin bot/upstream-sync
+
+      - name: Create or update PR to staging
+        if: env.NO_CHANGES != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PR_URL=$(gh pr list --base staging --head bot/upstream-sync --json url --jq '.[0].url')
+          if [ -z "$PR_URL" ]; then
+            gh pr create \
+              --base staging \
+              --head bot/upstream-sync \
+              --title "chore(sync): upstream -> staging (custom code wins conflicts)" \
+              --body "Automated upstream sync. Conflict policy: keep current custom/staging changes on conflict (-X ours), while still importing non-conflicting upstream updates."
+            PR_URL=$(gh pr list --base staging --head bot/upstream-sync --json url --jq '.[0].url')
+          fi
+          echo "PR_URL=$PR_URL" >> "$GITHUB_ENV"
+
+      - name: Auto-merge PR to staging
+        if: env.NO_CHANGES != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -n "${PR_URL:-}" ]; then
+            gh pr merge "$PR_URL" --merge --delete-branch=false || true
+          fi
