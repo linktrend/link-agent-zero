@@ -1,0 +1,34 @@
+name: Upstream Sync To Staging
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Sync upstream into staging
+        run: |
+          set -euo pipefail
+          git remote add upstream "https://github.com/agent0ai/agent-zero.git" || git remote set-url upstream "https://github.com/agent0ai/agent-zero.git"
+          git fetch upstream "main"
+          git fetch origin staging || true
+          git checkout -B staging origin/staging 2>/dev/null || git checkout -B staging
+          git merge --no-ff --no-edit "upstream/main" || {
+            echo "Conflict merging upstream/main into staging. Resolve manually in staging.";
+            exit 1;
+          }
+          git push origin staging
