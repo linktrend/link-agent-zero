@@ -26,7 +26,7 @@ nats-py>=2.6.0
 paramiko==3.5.0
 playwright==1.52.0
 pypdf==6.0.0
-python-dotenv==1.1.0
+python-dotenv==1.2.2
 pytz==2024.2
 sentence-transformers==3.0.1
 tiktoken==0.8.0
