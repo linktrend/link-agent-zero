@@ -1,38 +1,49 @@
 # Branching and Deployment Policy
 
 Owner: LiNKtrend Platform  
-Last updated: 2026-04-01
+Last updated: 2026-06-06  
+Aligned with: `LiNKdev/factory/rules/01-git-branching.mdc`, `LiNKtrend-System/docs/BRANCHING_AND_DEPLOYMENT_POLICY.md`
 
 ## Purpose
-This repository uses a protected promotion model so production deploys are deterministic and auditable.
 
-## Branch Model
-- `main` is production-only (protected, no direct pushes).
-- `staging` is the integration branch (all feature work lands here first).
-- `dev/<agent-name>/<topic>` branches are short-lived developer/agent branches.
+Protected promotion model for the **link-agentzero** fork. Upstream is [agent0ai/agent-zero](https://github.com/agent0ai/agent-zero); LiNKtrend never pushes upstream.
 
-## Promotion Flow
-1. Develop in `dev/*`.
-2. Open PR to `staging`.
-3. Resolve conflicts and pass CI/security gates in `staging`.
-4. Open PR from `staging` to `main`.
-5. Deploy only from tagged commit on `main` (pin by tag/SHA, never `latest`).
+## Branch model (LiNKdev)
 
-## Required Gates
-- CI must pass on both `staging` and `main`.
-- Security checks required: SAST, dependency vulnerability scan, secret scan.
-- PR review required for `staging` (minimum 1 approval).
-- Stricter review for `main` (recommended 2 approvals + release owner sign-off).
+| Branch | Role |
+|--------|------|
+| `development` | Integration — all agent/issue work lands here via PR |
+| `staging` | Pre-production — upstream sync target + promotion from `development` |
+| `main` | Production — Principal promotion from `staging` only |
 
-## Deployment Rules
-- Production deployment source is `main` only.
-- Optional dev/staging VPS deployments may come from `staging`.
-- Every production release must be tagged (example: `v2026.04.01-1`).
+Short-lived branches: `issue/<id>-<slug>`, `dev/<machine><ide>`, `feature/*`, `fix/*`, `chore/*`.
 
-## Branch Protection Setup
-Configure in GitHub repository settings:
-- Protect `main`: no force-push, no direct push, required checks, required approvals.
-- Protect `staging`: required checks and at least one approval.
+## Promotion flow
 
-## Note for Repos Still on `main`
-If this repo currently uses `main` as default, treat `main` as production branch until default branch is renamed to `main`.
+```
+issue/* or dev/*  →  PR to development  →  Integrator merges when merge-ready
+development       →  PR to staging      →  Principal
+staging           →  PR to main         →  Principal
+```
+
+- **Never** push directly to `staging` or `main`.
+- Upstream sync merges into **`staging`** only (see `docs/UPSTREAM.md`).
+
+## Upstream sync
+
+- Workflow: `.github/workflows/upstream-sync-staging.yml`
+- Source: `agent0ai/agent-zero` branch `main`
+- Target: fork `staging` via `bot/upstream-sync` PR (auto-merge when clean)
+- Conflict policy: **keep fork customizations** (`git merge -X ours`)
+
+## Required gates
+
+- CI + security workflow on PRs
+- Branch source policy on `development`, `staging`, `main`
+- Production deploy from tagged **`main`** commit only (pin by SHA)
+
+## Deployment
+
+- VPS path: `/opt/linktrend/link-agentzero`
+- LiNKaios compose builds via `LiNKtrend-System/deploy/docker/agent-zero.Dockerfile`
+- Health: `GET /api/health` on port 80
