@@ -1,0 +1,17 @@
+name: LiNKtrend Sunday Upstream Sync
+
+on:
+  schedule:
+    - cron: "0 18 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upstream-sync:
+    uses: linktrend/LiNKtrend-System/.github/workflows/reusable-fork-upstream-sync.yml@main
+    with:
+      upstream_url: https://github.com/agent0ai/agent-zero.git
+      upstream_branch: main
+    secrets: inherit
