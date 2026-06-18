@@ -1,0 +1,12 @@
+name: LiNKtrend Manual Staging To Main
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote-staging:
+    uses: linktrend/LiNKtrend-System/.github/workflows/reusable-staging-to-main.yml@main
+    secrets: inherit
