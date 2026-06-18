@@ -1,0 +1,14 @@
+name: LiNKtrend Monday Development To Staging
+
+on:
+  schedule:
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote-development:
+    uses: linktrend/LiNKtrend-System/.github/workflows/reusable-development-to-staging.yml@main
+    secrets: inherit
