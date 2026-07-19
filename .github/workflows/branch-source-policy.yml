@@ -1,0 +1,23 @@
+name: Branch Source Policy
+
+on:
+  pull_request:
+
+jobs:
+  dev-branch-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce source branch naming for development
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.base_ref }}"
+          HEAD="${{ github.head_ref }}"
+          echo "base=$BASE head=$HEAD"
+          if [[ "$BASE" == "development" ]]; then
+            if [[ ! "$HEAD" =~ ^dev/[^/]+$ ]]; then
+              echo "PRs into development must come from dev/<developer> only. Received: $HEAD"
+              exit 1
+            fi
+          fi
+          echo "Branch source policy passed."
